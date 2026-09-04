@@ -34,9 +34,11 @@ QR_DIR = PHOTO_DIR / "qr"
 SAMPLE_MEM_PATH = BASE_DIR.parent / "02_FPGA_ROM_TEST" / "sunset.mem"
 PHOTO_ID_PATTERN = re.compile(r"^[A-Za-z0-9_-]{20,64}$")
 TUNNEL_URL_PATTERN = re.compile(r"https://[a-z0-9-]+\.trycloudflare\.com")
+_WINDOWS_CONSOLE_HANDLER: Any | None = None
 
 
 def load_config() -> dict[str, Any]:
+    """Load the JSON web configuration and normalize State keys to integers."""
     with CONFIG_PATH.open("r", encoding="utf-8") as config_file:
         config = json.load(config_file)
     config["state_names"] = {
@@ -156,7 +158,10 @@ def encode_status_fields(values: dict[str, Any]) -> tuple[int, int]:
 
 
 class DashboardState:
+    """Thread-safe shared state consumed by the local user and admin pages."""
+
     def __init__(self, config: dict[str, Any]) -> None:
+        """Initialize the dashboard snapshot and bounded State history."""
         self._lock = threading.Lock()
         self._state_names: dict[int, str] = config["state_names"]
         self._data: dict[str, Any] = {
@@ -181,10 +186,12 @@ class DashboardState:
         self._history: deque[dict[str, Any]] = deque(maxlen=30)
 
     def update(self, **values: Any) -> None:
+        """Atomically merge values into the current dashboard snapshot."""
         with self._lock:
             self._data.update(values)
 
     def record_status(self, status: int, state_code: int, source: str = "UART") -> None:
+        """Decode and store one FPGA or test Status snapshot and history entry."""
         state_name = self._state_names.get(state_code, f"STATE_0x{state_code:X}")
         status_fields = decode_status_fields(status)
         history_item = {
@@ -214,6 +221,7 @@ class DashboardState:
             self._history.appendleft(history_item)
 
     def snapshot(self) -> dict[str, Any]:
+        """Return a copy of the current dashboard data and recent history."""
         with self._lock:
             result = dict(self._data)
             result["history"] = list(self._history)
@@ -221,7 +229,10 @@ class DashboardState:
 
 
 class PhotoStore:
+    """Store result images and QR codes with time-based expiration."""
+
     def __init__(self, expire_minutes: int) -> None:
+        """Create photo directories and configure the expiration interval."""
         PHOTO_DIR.mkdir(parents=True, exist_ok=True)
         QR_DIR.mkdir(parents=True, exist_ok=True)
         self.expire_seconds = max(1, expire_minutes) * 60
@@ -229,6 +240,7 @@ class PhotoStore:
         self._public_base_url: str | None = None
 
     def set_public_base_url(self, url: str) -> None:
+        """Set the current public tunnel URL and refresh QR codes for live photos."""
         with self._lock:
             self._public_base_url = url.rstrip("/")
         self.cleanup_expired()
@@ -237,11 +249,13 @@ class PhotoStore:
                 self.create_qr(photo_path.stem)
 
     def page_url(self, photo_id: str) -> str | None:
+        """Return the public mobile page URL for a photo when a tunnel is ready."""
         with self._lock:
             base_url = self._public_base_url
         return None if base_url is None else f"{base_url}/photo/{photo_id}"
 
     def create_qr(self, photo_id: str) -> str | None:
+        """Generate a QR image pointing to the public mobile photo page."""
         page_url = self.page_url(photo_id)
         if page_url is None:
             return None
@@ -249,12 +263,14 @@ class PhotoStore:
         return page_url
 
     def save(self, image: Image.Image) -> tuple[str, str | None]:
+        """Save a result image and return its opaque ID and optional public URL."""
         self.cleanup_expired()
         photo_id = secrets.token_urlsafe(24)
         image.convert("RGB").save(PHOTO_DIR / f"{photo_id}.png")
         return photo_id, self.create_qr(photo_id)
 
     def cleanup_expired(self) -> None:
+        """Delete expired result images and their matching QR files."""
         now = time.time()
         for photo_path in PHOTO_DIR.glob("*.png"):
             if now - photo_path.stat().st_mtime <= self.expire_seconds:
@@ -264,6 +280,7 @@ class PhotoStore:
             (QR_DIR / f"{photo_id}.png").unlink(missing_ok=True)
 
     def is_available(self, photo_id: str) -> bool:
+        """Return whether a photo ID is valid, present, and not expired."""
         if not PHOTO_ID_PATTERN.fullmatch(photo_id):
             return False
         photo_path = PHOTO_DIR / f"{photo_id}.png"
@@ -276,6 +293,7 @@ class PhotoStore:
         return False
 
     def require_photo(self, photo_id: str) -> Path:
+        """Return an available photo path or abort with the appropriate HTTP status."""
         if not PHOTO_ID_PATTERN.fullmatch(photo_id):
             abort(404)
         photo_path = PHOTO_DIR / f"{photo_id}.png"
@@ -289,7 +307,10 @@ class PhotoStore:
 
 
 class UARTReceiver:
+    """Receive status words and RGB444 frames from the Basys3 serial port."""
+
     def __init__(self, config: dict[str, Any], dashboard_state: DashboardState, photo_store: PhotoStore) -> None:
+        """Initialize UART receiver configuration and background-thread state."""
         self.config = config
         self.dashboard_state = dashboard_state
         self.photo_store = photo_store
@@ -299,6 +320,7 @@ class UARTReceiver:
         self._thread: threading.Thread | None = None
 
     def connect(self, port_name: str) -> None:
+        """Open the selected serial port and start the receive thread."""
         self.disconnect()
         uart = serial.Serial(
             port=port_name,
@@ -317,6 +339,7 @@ class UARTReceiver:
         self.dashboard_state.update(connected=True, port=port_name, message="UART 연결 완료 — FPGA State 수신 대기")
 
     def disconnect(self) -> None:
+        """Stop UART reception, close the serial port, and update dashboard state."""
         self._stop_event.set()
         with self._lock:
             uart = self._serial
@@ -333,6 +356,7 @@ class UARTReceiver:
         self.dashboard_state.update(connected=False, port=None, receiving_photo=False, receive_progress=0, message="UART 연결 해제")
 
     def _read_exact(self, uart: serial.Serial, size: int) -> bytes:
+        """Read exactly ``size`` bytes while reporting image-receive progress."""
         received = bytearray()
         while len(received) < size:
             if self._stop_event.is_set():
@@ -346,6 +370,7 @@ class UARTReceiver:
         return bytes(received)
 
     def _receive_loop(self) -> None:
+        """Continuously decode Status words and FINAL_EXPORT image payloads."""
         with self._lock:
             uart = self._serial
         if uart is None:
@@ -387,14 +412,19 @@ class UARTReceiver:
 
 
 class CloudflareTunnel:
+    """Manage the cloudflared Quick Tunnel subprocess used by the mobile page."""
+
     def __init__(self, public_port: int, dashboard_state: DashboardState, on_ready: Callable[[str], None]) -> None:
+        """Store tunnel configuration and initialize subprocess lifecycle state."""
         self.public_port = public_port
         self.dashboard_state = dashboard_state
         self.on_ready = on_ready
         self._process: subprocess.Popen[str] | None = None
         self._stopping = False
+        self._stop_lock = threading.Lock()
 
     def start(self) -> None:
+        """Start cloudflared and launch a reader thread for the generated public URL."""
         executable = find_cloudflared()
         if executable is None:
             self.dashboard_state.update(tunnel_ready=False, tunnel_message="cloudflared를 찾을 수 없습니다. PowerShell을 다시 열어보세요.")
@@ -418,6 +448,7 @@ class CloudflareTunnel:
         threading.Thread(target=self._read_output, daemon=True).start()
 
     def _read_output(self) -> None:
+        """Read cloudflared output, capture the Quick Tunnel URL, and track exit state."""
         process = self._process
         if process is None or process.stdout is None:
             return
@@ -440,14 +471,50 @@ class CloudflareTunnel:
             self.dashboard_state.update(tunnel_ready=False, tunnel_message=f"Cloudflare Tunnel 종료됨 (code={return_code})")
 
     def stop(self) -> None:
-        self._stopping = True
-        process = self._process
-        if process is not None and process.poll() is None:
+        """Terminate cloudflared, escalating to kill when graceful termination times out."""
+        with self._stop_lock:
+            self._stopping = True
+            process = self._process
+            if process is None or process.poll() is not None:
+                return
             process.terminate()
             try:
                 process.wait(timeout=3)
             except subprocess.TimeoutExpired:
                 process.kill()
+                process.wait(timeout=1)
+
+
+def register_windows_console_cleanup(tunnel: CloudflareTunnel) -> None:
+    """Stop cloudflared when Windows sends a console close/control event."""
+    global _WINDOWS_CONSOLE_HANDLER
+    if os.name != "nt":
+        return
+
+    try:
+        import ctypes
+        from ctypes import wintypes
+
+        handler_type = ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.DWORD)
+        cleanup_events = {0, 1, 2, 5, 6}  # CTRL_C/BREAK/CLOSE/LOGOFF/SHUTDOWN
+
+        @handler_type
+        def console_handler(control_type: int) -> bool:
+            if control_type in cleanup_events:
+                tunnel.stop()
+            # Let Python/Windows continue their normal termination handling.
+            return False
+
+        kernel32 = ctypes.WinDLL("Kernel32", use_last_error=True)
+        kernel32.SetConsoleCtrlHandler.argtypes = [handler_type, wintypes.BOOL]
+        kernel32.SetConsoleCtrlHandler.restype = wintypes.BOOL
+        if not kernel32.SetConsoleCtrlHandler(console_handler, True):
+            raise ctypes.WinError(ctypes.get_last_error())
+
+        # Keep the ctypes callback alive for the lifetime of the process.
+        _WINDOWS_CONSOLE_HANDLER = console_handler
+    except Exception as exc:
+        print(f"[Cloudflare] Windows console cleanup handler registration failed: {exc}", flush=True)
 
 
 config = load_config()
@@ -461,6 +528,7 @@ public_app = Flask("photo_public", template_folder=str(BASE_DIR / "templates"))
 
 
 def handle_tunnel_ready(public_url: str) -> None:
+    """Update photo URLs and QR codes after Cloudflare publishes a tunnel URL."""
     photo_store.set_public_base_url(public_url)
     photo_id = dashboard_state.snapshot().get("photo_id")
     if photo_id:
@@ -468,21 +536,25 @@ def handle_tunnel_ready(public_url: str) -> None:
 
 
 tunnel = CloudflareTunnel(public_port, dashboard_state, handle_tunnel_ready)
+register_windows_console_cleanup(tunnel)
 atexit.register(tunnel.stop)
 
 
 @app.get("/")
 def user_screen() -> str:
+    """Render the user-facing photo booth screen."""
     return render_template("user.html")
 
 
 @app.get("/settings")
 def settings_screen() -> str:
+    """Render the administrator settings and Status monitor screen."""
     return render_template("dashboard.html", baud_rate=config["baud_rate"])
 
 
 @app.get("/api/status")
 def api_status():
+    """Return the latest UART/test Status, tunnel state, and photo metadata."""
     snapshot = dashboard_state.snapshot()
     photo_id = snapshot.get("photo_id")
     if photo_id and not photo_store.is_available(photo_id):
@@ -497,12 +569,14 @@ def api_status():
 
 @app.get("/api/ports")
 def api_ports():
+    """Return available serial ports for the administrator connection selector."""
     ports = [{"device": item.device, "description": item.description} for item in list_ports.comports()]
     return jsonify({"ports": ports})
 
 
 @app.post("/api/connect")
 def api_connect():
+    """Connect the UART receiver to the selected COM port."""
     body = request.get_json(silent=True) or {}
     port_name = str(body.get("port", "")).strip()
     if not port_name:
@@ -518,12 +592,14 @@ def api_connect():
 
 @app.post("/api/disconnect")
 def api_disconnect():
+    """Disconnect the active UART receiver."""
     uart_receiver.disconnect()
     return jsonify({"ok": True})
 
 
 @app.post("/api/test-mode")
 def api_test_mode():
+    """Enable or disable the FPGA-free administrator UI test mode."""
     body = request.get_json(silent=True) or {}
     enabled = bool(body.get("enabled", False))
     if enabled:
@@ -546,6 +622,7 @@ def api_test_mode():
 
 @app.post("/api/test-status")
 def api_test_status():
+    """Apply one synthetic Controller Status snapshot while test mode is active."""
     if not dashboard_state.snapshot().get("test_mode"):
         return jsonify({"ok": False, "error": "먼저 UI 시험 모드를 켜세요."}), 400
 
@@ -566,6 +643,7 @@ def api_test_status():
 
 @app.post("/api/test-reset")
 def api_test_reset():
+    """Reset the synthetic test Status and photo metadata to OPEN defaults."""
     if not dashboard_state.snapshot().get("test_mode"):
         return jsonify({"ok": False, "error": "먼저 UI 시험 모드를 켜세요."}), 400
     dashboard_state.record_status(0, 0, source="TEST")
@@ -582,6 +660,7 @@ def api_test_reset():
 
 @app.post("/api/test-photo")
 def api_test_photo():
+    """Build a sample result photo from sunset.mem for FPGA-free web/QR testing."""
     try:
         if not dashboard_state.snapshot().get("test_mode"):
             uart_receiver.disconnect()
@@ -605,12 +684,14 @@ def api_test_photo():
 
 @app.get("/photos/<photo_id>.png")
 def local_photo_file(photo_id: str):
+    """Serve a non-expired result photo to the local dashboard/user page."""
     photo_store.require_photo(photo_id)
     return send_from_directory(PHOTO_DIR, f"{photo_id}.png")
 
 
 @app.get("/qr/<photo_id>.png")
 def local_qr_file(photo_id: str):
+    """Serve the locally generated QR code for a result photo."""
     photo_store.require_photo(photo_id)
     qr_path = QR_DIR / f"{photo_id}.png"
     if not qr_path.is_file():
@@ -620,12 +701,14 @@ def local_qr_file(photo_id: str):
 
 @app.get("/download/<photo_id>")
 def local_download_photo(photo_id: str):
+    """Serve a result photo as a local attachment download."""
     photo_store.require_photo(photo_id)
     return send_from_directory(PHOTO_DIR, f"{photo_id}.png", as_attachment=True, download_name=f"four_cut_{photo_id}.png")
 
 
 @public_app.after_request
 def disable_public_cache(response):
+    """Disable caching and MIME sniffing on public photo responses."""
     response.headers["Cache-Control"] = "no-store, max-age=0"
     response.headers["X-Content-Type-Options"] = "nosniff"
     return response
@@ -633,27 +716,32 @@ def disable_public_cache(response):
 
 @public_app.get("/photo/<photo_id>")
 def mobile_photo_page(photo_id: str):
+    """Render the public mobile photo page for a valid non-expired photo."""
     photo_store.require_photo(photo_id)
     return render_template("photo.html", photo_id=photo_id)
 
 
 @public_app.get("/photos/<photo_id>.png", endpoint="photo_file")
 def public_photo_file(photo_id: str):
+    """Serve a public non-expired result image."""
     photo_store.require_photo(photo_id)
     return send_from_directory(PHOTO_DIR, f"{photo_id}.png")
 
 
 @public_app.get("/download/<photo_id>", endpoint="download_photo")
 def public_download_photo(photo_id: str):
+    """Serve a public result image as an attachment download."""
     photo_store.require_photo(photo_id)
     return send_from_directory(PHOTO_DIR, f"{photo_id}.png", as_attachment=True, download_name=f"four_cut_{photo_id}.png")
 
 
 def run_public_server() -> None:
+    """Run the localhost-only photo server that cloudflared exposes publicly."""
     public_app.run(host="127.0.0.1", port=public_port, debug=False, threaded=True, use_reloader=False)
 
 
 def open_dashboard() -> None:
+    """Open the local user page in the default browser."""
     webbrowser.open(f"http://127.0.0.1:{private_port}")
 
 
