@@ -25,6 +25,7 @@ STATUS_SIZE = 4
 
 
 def read_exact(stream: BinaryIO, size: int, show_progress: bool = False) -> bytes:
+    """Read exactly ``size`` bytes from a stream while tolerating timeout reads."""
     received = bytearray()
     next_percent = 10
     while len(received) < size:
@@ -41,6 +42,7 @@ def read_exact(stream: BinaryIO, size: int, show_progress: bool = False) -> byte
 
 
 def parse_status(raw_status: bytes) -> tuple[int, int]:
+    """Decode four little-endian status bytes and return the status word and State."""
     if len(raw_status) != STATUS_SIZE:
         raise ValueError("Status는 정확히 4Byte여야 합니다.")
     status = int.from_bytes(raw_status, byteorder="little", signed=False)
@@ -49,6 +51,7 @@ def parse_status(raw_status: bytes) -> tuple[int, int]:
 
 
 def rgb444_payload_to_image(payload: bytes, width: int, height: int) -> Image.Image:
+    """Convert the UART two-byte-per-pixel RGB444 payload into an RGB888 image."""
     pixel_count = width * height
     expected_size = pixel_count * 2
     if len(payload) != expected_size:
@@ -69,12 +72,14 @@ def rgb444_payload_to_image(payload: bytes, width: int, height: int) -> Image.Im
 
 
 def make_output_path(output_dir: Path) -> Path:
+    """Create the output directory and return a timestamped PNG path."""
     output_dir.mkdir(parents=True, exist_ok=True)
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
     return output_dir / f"uart_image_{timestamp}.png"
 
 
 def receive_from_uart(args: argparse.Namespace) -> None:
+    """Receive status and FINAL_EXPORT payloads from a serial port and save images."""
     try:
         import serial
     except ImportError as exc:
@@ -122,6 +127,7 @@ def receive_from_uart(args: argparse.Namespace) -> None:
 
 
 def convert_payload_file(args: argparse.Namespace) -> None:
+    """Convert a saved raw RGB444 payload file into a PNG image."""
     payload = Path(args.input_bin).read_bytes()
     image = rgb444_payload_to_image(payload, args.width, args.height)
     output_path = make_output_path(Path(args.output_dir))
@@ -130,6 +136,7 @@ def convert_payload_file(args: argparse.Namespace) -> None:
 
 
 def parse_args() -> argparse.Namespace:
+    """Parse command-line arguments for UART reception or raw payload conversion."""
     parser = argparse.ArgumentParser(description="FPGA UART의 RGB444 Pixel 데이터를 받아 PNG로 저장합니다.")
     source = parser.add_mutually_exclusive_group(required=True)
     source.add_argument("--port", help="Windows COM 포트 예: COM5")
@@ -145,6 +152,7 @@ def parse_args() -> argparse.Namespace:
 
 
 def main() -> None:
+    """Run the command-line receiver using the selected input source."""
     args = parse_args()
     if args.width <= 0 or args.height <= 0:
         raise SystemExit("width와 height는 1 이상이어야 합니다.")
