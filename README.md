@@ -2,6 +2,8 @@
 
 Basys3 FPGA 기반 네컷 포토부스 프로젝트의 UART 이미지 전송 및 Python 웹 UI 통합 코드입니다.
 
+> Review workflow test: Copilot 및 CodeRabbit PR 리뷰 연동 확인용 변경입니다.
+
 ## 현재 UART 통합 범위
 
 - Basys3 100 MHz 기준 UART TX
