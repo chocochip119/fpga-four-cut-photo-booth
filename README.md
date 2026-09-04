@@ -12,6 +12,7 @@ Basys3 FPGA 기반 네컷 포토부스 프로젝트의 UART 이미지 전송 및
 - Vivado 통합 Testbench 및 Basys3 XDC
 - Python `pyserial` 이미지 수신 및 PNG 저장
 - Flask 웹 UI에서 COM 포트 연결, State 확인, 이미지 표시, QR 생성
+- 운영용 Dashboard와 별도 사용자용 Photo Booth 화면 제공
 
 ## UART 데이터 형식
 
@@ -80,6 +81,18 @@ run_web.bat
 python uart_photo_web.py
 ```
 
-기본 웹 주소는 `http://127.0.0.1:5000`입니다.
+운영용 Dashboard:
+
+```text
+http://127.0.0.1:5000
+```
+
+사용자용 Photo Booth 화면:
+
+```text
+http://127.0.0.1:5000/user
+```
+
+두 화면은 같은 Flask 서버와 UART 상태를 공유하므로 서버를 따로 실행할 필요가 없습니다.
 
 상세 사용 순서는 [README_사용순서.md](README_사용순서.md)를 참고하세요.
