@@ -1,0 +1,18 @@
+{
+  "baud_rate": 1000000,
+  "image_width": 640,
+  "image_height": 480,
+  "export_state": 5,
+  "web_port": 5000,
+  "public_port": 5001,
+  "photo_expire_minutes": 10,
+  "state_names": {
+    "0": "OPEN",
+    "1": "SHOOT",
+    "2": "CAPTURE",
+    "3": "STICKER",
+    "4": "DRAW",
+    "5": "FINAL_EXPORT",
+    "6": "RESULT"
+  }
+}

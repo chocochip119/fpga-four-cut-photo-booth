@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="ko">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Four Cut Studio · State Debug</title>
+    <style>
+        :root {
+            color-scheme: light;
+            --bg: #171717;
+            --panel: #232323;
+            --line: #3a3a3a;
+            --text: #f5f5f5;
+            --muted: #aaa;
+            --accent: #ff776d;
+            --good: #5ac18e;
+        }
+        * { box-sizing: border-box; }
+        html, body { margin: 0; width: 100%; height: 100%; font-family: Pretendard, "Malgun Gothic", sans-serif; }
+        body { display: grid; grid-template-rows: auto 1fr; background: var(--bg); color: var(--text); }
+        .toolbar { padding: 12px 14px; border-bottom: 1px solid var(--line); background: var(--panel); }
+        .top { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
+        .title { font-weight: 950; }
+        .status { display: flex; flex-wrap: wrap; gap: 8px; color: var(--muted); font-size: 12px; }
+        .pill { padding: 6px 9px; border: 1px solid var(--line); border-radius: 999px; background: #1c1c1c; }
+        .pill.connected { color: var(--good); }
+        .buttons { display: flex; gap: 7px; flex-wrap: wrap; }
+        button, a {
+            min-height: 36px; padding: 7px 10px; border: 1px solid var(--line); border-radius: 9px;
+            background: #2c2c2c; color: var(--text); font: inherit; font-size: 12px; font-weight: 800;
+            cursor: pointer; text-decoration: none;
+        }
+        button:hover, a:hover { border-color: #666; }
+        button.active { border-color: var(--accent); background: var(--accent); color: #fff; }
+        .note { margin-top: 9px; color: var(--muted); font-size: 11px; line-height: 1.5; }
+        iframe { width: 100%; height: 100%; border: 0; background: white; }
+    </style>
+</head>
+<body>
+<header class="toolbar">
+    <div class="top">
+        <div class="title">UI State Override Debugger</div>
+        <div class="status">
+            <span id="uart-pill" class="pill">UART 확인 중</span>
+            <span id="actual-pill" class="pill">FPGA 실제 State: -</span>
+            <span id="display-pill" class="pill">화면 State: STICKER</span>
+        </div>
+    </div>
+
+    <div class="buttons">
+        <button data-state="live" onclick="setOverride(null)">실제 State 사용</button>
+        <button data-state="0" onclick="setOverride(0)">OPEN</button>
+        <button data-state="1" onclick="setOverride(1)">SHOOT</button>
+        <button data-state="2" onclick="setOverride(2)">CAPTURE</button>
+        <button data-state="3" onclick="setOverride(3)">STICKER</button>
+        <button data-state="4" onclick="setOverride(4)">DRAW</button>
+        <button data-state="5" onclick="setOverride(5)">FINAL_EXPORT</button>
+        <button data-state="6" onclick="setOverride(6)">RESULT</button>
+        <a href="/settings" target="_blank">관리자 설정 열기</a>
+    </div>
+
+    <div class="note">
+        이 기능은 FPGA State를 변경하지 않습니다. UART 연결과 실제 Status 수신은 계속 유지하고,
+        아래 사용자 화면에 전달되는 <b>state_code/state_name만 임시로 덮어씁니다.</b>
+        따라서 Sticker ID, Draw Color, Marker 신호 등 나머지 값은 실제 UART 값을 그대로 확인할 수 있습니다.
+    </div>
+</header>
+
+<iframe id="preview" src="/" title="사용자 화면 디버그 미리보기"></iframe>
+
+<script>
+const STATE_NAMES = {
+    0: "OPEN",
+    1: "SHOOT",
+    2: "CAPTURE",
+    3: "STICKER",
+    4: "DRAW",
+    5: "FINAL_EXPORT",
+    6: "RESULT"
+};
+
+const params = new URLSearchParams(location.search);
+const rawState = params.get("state");
+const requested = rawState === null || rawState.trim() === "" ? NaN : Number(rawState);
+let overrideState = Number.isInteger(requested) && requested >= 0 && requested <= 6 ? requested : 3;
+const preview = document.getElementById("preview");
+
+function refreshButtons() {
+    document.querySelectorAll("[data-state]").forEach((button) => {
+        const key = button.dataset.state;
+        const active = overrideState === null ? key === "live" : Number(key) === overrideState;
+        button.classList.toggle("active", active);
+    });
+    document.getElementById("display-pill").textContent = overrideState === null
+        ? "화면 State: 실제 State 사용"
+        : `화면 State: ${STATE_NAMES[overrideState]} (${overrideState})`;
+}
+
+function setOverride(stateCode) {
+    overrideState = stateCode;
+    const child = preview.contentWindow;
+    if (child) child.__uiStateOverride = overrideState;
+    refreshButtons();
+}
+
+function installFetchOverride() {
+    const child = preview.contentWindow;
+    if (!child || child.__uiStateOverrideInstalled) {
+        if (child) child.__uiStateOverride = overrideState;
+        return;
+    }
+
+    const originalFetch = child.fetch.bind(child);
+    child.__uiStateOverrideInstalled = true;
+    child.__uiStateOverride = overrideState;
+    child.__uiStateOverrideOriginalFetch = originalFetch;
+
+    child.fetch = async (...args) => {
+        const response = await originalFetch(...args);
+        const input = args[0];
+        const url = typeof input === "string" ? input : (input && input.url ? input.url : "");
+
+        if (!url.includes("/api/status")) return response;
+
+        try {
+            const data = await response.clone().json();
+            data.actual_state_code = data.state_code;
+            data.actual_state_name = data.state_name;
+
+            const forced = child.__uiStateOverride;
+            if (forced !== null && forced !== undefined) {
+                data.state_code = forced;
+                data.state_name = STATE_NAMES[forced] || `STATE_${forced}`;
+                data.ui_state_override = true;
+                data.ui_override_state_code = forced;
+                data.ui_override_state_name = data.state_name;
+            } else {
+                data.ui_state_override = false;
+                data.ui_override_state_code = null;
+                data.ui_override_state_name = null;
+            }
+
+            const headers = new Headers(response.headers);
+            headers.set("Content-Type", "application/json");
+            headers.set("Cache-Control", "no-store");
+            return new child.Response(JSON.stringify(data), {
+                status: response.status,
+                statusText: response.statusText,
+                headers
+            });
+        } catch (error) {
+            console.warn("State override failed:", error);
+            return response;
+        }
+    };
+}
+
+async function pollActualStatus() {
+    try {
+        const response = await fetch("/api/status", {cache: "no-store"});
+        const data = await response.json();
+        const uartPill = document.getElementById("uart-pill");
+        uartPill.textContent = data.connected ? `UART 연결됨 · ${data.port || "COM"}` : "UART 연결 안 됨";
+        uartPill.classList.toggle("connected", Boolean(data.connected));
+        document.getElementById("actual-pill").textContent =
+            `FPGA 실제 State: ${data.state_name} (${data.state_code}) · ${data.status_hex}`;
+    } catch (error) {
+        document.getElementById("uart-pill").textContent = "서버 상태 확인 실패";
+    }
+}
+
+preview.addEventListener("load", () => {
+    installFetchOverride();
+    setOverride(overrideState);
+});
+
+refreshButtons();
+pollActualStatus();
+setInterval(() => {
+    installFetchOverride();
+    pollActualStatus();
+}, 300);
+</script>
+</body>
+</html>

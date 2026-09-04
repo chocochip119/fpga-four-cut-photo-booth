@@ -1,0 +1,7 @@
+pyserial>=3.5
+Pillow>=10.0
+qrcode>=8.0
+Flask>=3.0
+
+# cloudflared is a standalone executable, not a Python package.
+# Run install_requirements.bat to install both these Python packages and cloudflared.

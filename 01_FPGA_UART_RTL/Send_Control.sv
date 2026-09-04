@@ -1,9 +1,9 @@
 `timescale 1ns / 1ps
 
 module Send_Control #(
-    parameter int IMG_W = 320,
-    parameter int IMG_H = 240,
-    parameter logic [3:0] STATE_EXPORT = 4'h1
+    parameter int IMG_W = 640,
+    parameter int IMG_H = 480,
+    parameter logic [3:0] STATE_EXPORT = 4'h5
 )(
     input  logic        clk,
     input  logic        rst,

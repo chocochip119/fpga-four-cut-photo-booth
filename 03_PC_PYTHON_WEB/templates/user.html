@@ -1,0 +1,476 @@
+<!doctype html>
+<html lang="ko">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Four Cut Studio</title>
+    <style>
+        :root {
+            color-scheme: light;
+            --cream: #fffaf3;
+            --paper: #ffffff;
+            --ink: #282321;
+            --muted: #817772;
+            --line: #e9dfd7;
+            --coral: #ff776d;
+            --coral-soft: #ffe0da;
+            --peach: #ffca9f;
+            --lavender: #ddd5ff;
+            --mint: #cce9dc;
+            --yellow: #ffe79c;
+        }
+        * { box-sizing: border-box; }
+        html, body { margin: 0; min-height: 100%; }
+        body {
+            min-height: 100vh;
+            overflow-x: hidden;
+            color: var(--ink);
+            background:
+                radial-gradient(circle at 8% 8%, rgba(255,202,159,.35), transparent 27%),
+                radial-gradient(circle at 93% 92%, rgba(221,213,255,.43), transparent 30%),
+                var(--cream);
+            font-family: Pretendard, "Malgun Gothic", sans-serif;
+        }
+        button, a { font: inherit; }
+        .shell { width: min(1480px, 100%); min-height: 100vh; margin: auto; padding: 24px 32px 30px; }
+        .topbar { display: flex; align-items: center; justify-content: space-between; gap: 22px; }
+        .brand { font-size: 24px; font-weight: 950; letter-spacing: -.03em; }
+        .brand b { color: var(--coral); }
+        .system-state {
+            display: inline-flex; align-items: center; gap: 9px;
+            padding: 10px 15px; border: 1px solid var(--line); border-radius: 999px;
+            background: rgba(255,255,255,.82); color: var(--muted); font-size: 14px; font-weight: 700;
+        }
+        .system-state .dot { width: 9px; height: 9px; border-radius: 50%; background: #f0a54d; box-shadow: 0 0 0 5px rgba(240,165,77,.14); }
+        .system-state.ready .dot { background: #55b58a; box-shadow: 0 0 0 5px rgba(85,181,138,.14); }
+        .stepper { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; margin: 22px 0; }
+        .step { position: relative; min-width: 0; text-align: center; color: #b3a8a2; font-size: 12px; font-weight: 800; }
+        .step::before {
+            content: ""; display: block; height: 5px; margin-bottom: 8px;
+            border-radius: 999px; background: #eadfd7; transition: .35s ease;
+        }
+        .step.done::before { background: var(--peach); }
+        .step.current { color: var(--ink); }
+        .step.current::before { background: var(--coral); box-shadow: 0 4px 12px rgba(255,119,109,.25); }
+
+        .screen {
+            min-height: calc(100vh - 142px); background: rgba(255,255,255,.78);
+            border: 1px solid rgba(233,223,215,.95); border-radius: 30px;
+            box-shadow: 0 24px 70px rgba(96,72,57,.10); overflow: hidden;
+        }
+        .workflow { display: grid; grid-template-columns: minmax(0, 1fr) minmax(390px, .68fr); min-height: calc(100vh - 142px); }
+        .visual {
+            position: relative; display: grid; place-items: center; overflow: hidden;
+            padding: 34px; background: linear-gradient(145deg, #fff4e9, #f8f3ff);
+        }
+        .visual::before, .visual::after { content: ""; position: absolute; border-radius: 50%; opacity: .72; }
+        .visual::before { width: 280px; height: 280px; left: -100px; top: -100px; background: var(--yellow); }
+        .visual::after { width: 240px; height: 240px; right: -90px; bottom: -90px; background: var(--lavender); }
+        .visual-card {
+            position: relative; z-index: 1; width: min(680px, 88%); aspect-ratio: 4 / 3;
+            display: grid; place-items: center; padding: 34px; background: rgba(255,255,255,.88);
+            border: 1px solid rgba(255,255,255,.96); border-radius: 34px;
+            box-shadow: 0 30px 80px rgba(101,75,57,.15); text-align: center;
+        }
+        .visual-label { font-size: 15px; color: var(--muted); font-weight: 800; letter-spacing: .07em; }
+        .visual-main { margin-top: 10px; font-size: clamp(74px, 10vw, 150px); line-height: .95; font-weight: 950; color: var(--coral); letter-spacing: -.06em; }
+        .visual-sub { margin-top: 18px; color: var(--muted); font-size: clamp(16px, 1.5vw, 22px); font-weight: 700; }
+        .fourcut { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; width: min(270px, 75%); margin: 16px auto 0; }
+        .fourcut span { aspect-ratio: 4 / 3; border-radius: 15px; background: linear-gradient(145deg, var(--coral-soft), #fff0cf); }
+        .fourcut span:nth-child(2) { background: linear-gradient(145deg, var(--lavender), #efeaff); }
+        .fourcut span:nth-child(3) { background: linear-gradient(145deg, var(--mint), #ecfff7); }
+        .fourcut span:nth-child(4) { background: linear-gradient(145deg, var(--yellow), #fff7d3); }
+        .dots { display: flex; justify-content: center; gap: 10px; margin-top: 22px; }
+        .dots span { width: 24px; height: 24px; border-radius: 50%; border: 4px solid white; box-shadow: 0 2px 8px rgba(0,0,0,.08); }
+        .dots span:nth-child(1) { background: #292524; }
+        .dots span:nth-child(2) { background: #ff766d; }
+        .dots span:nth-child(3) { background: #ffbd65; }
+        .dots span:nth-child(4) { background: #80c59f; }
+        .dots span:nth-child(5) { background: #719ee8; }
+        .dots span:nth-child(6) { background: #9c7be5; }
+
+        .choice-panel { display: none; width: 100%; text-align: left; }
+        .choice-heading { margin-bottom: 18px; text-align: center; }
+        .choice-heading strong { display: block; font-size: clamp(22px, 2.4vw, 32px); letter-spacing: -.035em; }
+        .choice-heading span { display: block; margin-top: 6px; color: var(--muted); font-size: 13px; font-weight: 700; }
+        .filter-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 9px; }
+        .choice-item { padding: 8px; border: 2px solid transparent; border-radius: 16px; background: #f8f3ef; transition: .2s ease; }
+        .choice-item.active { border-color: var(--coral); background: #fff7f5; box-shadow: 0 8px 22px rgba(255,119,109,.16); transform: translateY(-3px); }
+        .choice-name { margin-top: 7px; overflow: hidden; color: #746963; font-size: 11px; font-weight: 900; text-align: center; white-space: nowrap; }
+        .choice-item.active .choice-name { color: #c45149; }
+        .filter-thumb { position: relative; aspect-ratio: 4 / 5; overflow: hidden; border-radius: 10px; background: linear-gradient(155deg, #8ed0dc 0 46%, #f6c179 46% 67%, #78ad79 67%); }
+        .filter-thumb::before { content: ""; position: absolute; width: 43%; aspect-ratio: 1; left: 29%; top: 23%; border-radius: 50%; background: #ffe0c1; box-shadow: 0 19px 0 8px #5c4740; }
+        .filter-thumb::after { content: ""; position: absolute; width: 74%; height: 35%; left: 13%; bottom: -12%; border-radius: 50% 50% 0 0; background: #ff776d; }
+        .filter-gray { filter: grayscale(1); }
+        .filter-sepia { filter: sepia(.9) saturate(.8); }
+        .filter-soft { filter: brightness(1.13) saturate(.72); }
+        .filter-film { filter: contrast(1.2) saturate(1.25); }
+        .filter-film-wrap { background: #292524; }
+        .filter-film-wrap .filter-thumb { border: 3px solid #292524; border-radius: 7px; }
+
+        .sticker-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 13px; }
+        .sticker-item { min-height: 155px; display: grid; place-items: center; padding: 16px 10px; }
+        .sticker-icon { width: min(90px, 82%); height: 90px; color: #ff776d; filter: drop-shadow(0 8px 12px rgba(255,119,109,.17)); }
+        .sticker-item:nth-child(2) .sticker-icon { color: #f2b849; }
+        .sticker-item:nth-child(3) .sticker-icon { color: #6ebc91; }
+        .sticker-pending { display: none; margin-top: 12px; padding: 10px 12px; border-radius: 12px; background: #f5f0ff; color: #7565ae; font-size: 12px; font-weight: 800; text-align: center; }
+
+        .tool-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+        .tool-item { display: flex; align-items: center; gap: 12px; min-height: 82px; padding: 14px; }
+        .tool-icon { width: 44px; height: 44px; display: grid; place-items: center; flex: 0 0 auto; border-radius: 13px; background: var(--coral-soft); color: #c45149; font-size: 24px; font-weight: 950; }
+        .tool-item:nth-child(2) .tool-icon { background: var(--lavender); color: #6957aa; }
+        .tool-copy strong { display: block; font-size: 15px; }
+        .tool-copy span { display: block; margin-top: 4px; color: var(--muted); font-size: 11px; line-height: 1.35; }
+        .palette-label { margin: 18px 0 9px; color: var(--muted); font-size: 12px; font-weight: 900; text-align: center; }
+        .palette { display: grid; grid-template-columns: repeat(8, 1fr); gap: 8px; }
+        .color-item { display: grid; place-items: center; gap: 5px; padding: 7px 3px; border: 2px solid transparent; border-radius: 12px; }
+        .color-item.active { border-color: var(--coral); background: #fff7f5; }
+        .color-dot { width: 28px; height: 28px; border: 3px solid white; border-radius: 50%; box-shadow: 0 2px 8px rgba(0,0,0,.16); }
+        .color-item span { color: var(--muted); font-size: 9px; font-weight: 800; }
+
+        .copy { min-width: 0; padding: clamp(28px, 3vw, 48px); display: flex; flex-direction: column; justify-content: center; background: rgba(255,255,255,.82); }
+        .eyebrow { color: var(--coral); font-size: 14px; font-weight: 950; letter-spacing: .12em; }
+        h1 { margin: 14px 0 16px; font-size: clamp(36px, 4vw, 58px); line-height: 1.13; letter-spacing: -.045em; word-break: keep-all; overflow-wrap: normal; }
+        .description { margin: 0; color: var(--muted); font-size: clamp(17px, 1.6vw, 22px); line-height: 1.7; word-break: keep-all; }
+        .chips { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 28px; }
+        .chip { padding: 11px 15px; border: 1px solid var(--line); border-radius: 999px; background: #fff; color: #665c57; font-size: 14px; font-weight: 800; }
+        .chip.accent { border-color: transparent; background: var(--coral-soft); color: #b64f48; }
+        .hint { margin-top: 32px; padding-top: 20px; border-top: 1px solid var(--line); color: #9b8f88; font-size: 14px; line-height: 1.6; word-break: keep-all; }
+        .progress-wrap { display: none; margin-top: 30px; }
+        .progress-head { display: flex; justify-content: space-between; font-weight: 900; margin-bottom: 10px; }
+        progress { width: 100%; height: 18px; border: none; accent-color: var(--coral); }
+
+        .result { display: none; grid-template-columns: minmax(0, 1.6fr) minmax(330px, .6fr); min-height: calc(100vh - 142px); }
+        .result-photo { display: grid; place-items: center; padding: 18px; background: #f4eee8; overflow: hidden; }
+        .result-photo img { display: none; width: 100%; height: calc(100vh - 180px); object-fit: contain; border-radius: 18px; box-shadow: 0 16px 48px rgba(67,54,46,.15); }
+        .result-empty { color: var(--muted); text-align: center; font-weight: 700; line-height: 1.7; }
+        .result-side { display: flex; flex-direction: column; justify-content: center; padding: 38px; text-align: center; background: white; }
+        .result-side .finish { color: var(--coral); font-size: 13px; font-weight: 950; letter-spacing: .12em; }
+        .result-side h2 { margin: 12px 0 9px; font-size: 38px; letter-spacing: -.045em; }
+        .result-side p { color: var(--muted); line-height: 1.65; margin: 0 0 22px; }
+        .qr { display: none; width: min(260px, 86%); margin: 0 auto; padding: 10px; border: 1px solid var(--line); border-radius: 18px; background: white; }
+        .open-photo { display: none; margin-top: 16px; padding: 15px 18px; border-radius: 14px; background: var(--coral); color: white; text-decoration: none; font-weight: 900; }
+
+        body.result-mode .workflow { display: none; }
+        body.result-mode .result { display: grid; }
+        body.export-mode .progress-wrap { display: block; }
+
+        @media (max-width: 1050px) and (min-width: 931px) {
+            .workflow { grid-template-columns: minmax(0, 1fr) 380px; }
+            .copy { padding: 28px; }
+            h1 { font-size: 38px; }
+            .description { font-size: 17px; }
+            .filter-grid { grid-template-columns: repeat(5, minmax(58px, 1fr)); }
+            .sticker-item { min-height: 135px; }
+        }
+        @media (max-width: 930px) {
+            .shell { padding: 18px; }
+            .step span { display: none; }
+            .workflow, .result { grid-template-columns: 1fr; }
+            .screen, .workflow, .result { min-height: auto; }
+            .visual { min-height: 45vh; }
+            .visual-card { max-height: 390px; }
+            .copy { padding: 36px 28px; }
+            h1 { font-size: clamp(34px, 7vw, 48px); }
+            .result-photo img { height: 62vh; }
+        }
+        @media (max-width: 560px) {
+            .filter-grid { grid-template-columns: repeat(3, 1fr); }
+            .sticker-grid { gap: 7px; }
+            .sticker-item { min-height: 115px; padding: 10px 4px; }
+            .sticker-icon { height: 62px; }
+            .palette { grid-template-columns: repeat(4, 1fr); }
+        }
+    </style>
+</head>
+<body>
+<main class="shell">
+    <header class="topbar">
+        <div class="brand">FOUR CUT <b>STUDIO</b></div>
+        <div id="system-state" class="system-state"><span class="dot"></span><span id="system-text">시스템 준비 중</span></div>
+    </header>
+
+    <nav class="stepper" aria-label="진행 단계">
+        <div class="step" data-step="0"><span>시작</span></div>
+        <div class="step" data-step="1"><span>촬영 준비</span></div>
+        <div class="step" data-step="2"><span>촬영</span></div>
+        <div class="step" data-step="3"><span>스티커</span></div>
+        <div class="step" data-step="4"><span>꾸미기</span></div>
+        <div class="step" data-step="5"><span>저장</span></div>
+        <div class="step" data-step="6"><span>완료</span></div>
+    </nav>
+
+    <section class="screen">
+        <div class="workflow">
+            <div class="visual">
+                <div class="visual-card">
+                    <div id="visual-default">
+                        <div id="visual-label" class="visual-label">WELCOME</div>
+                        <div id="visual-main" class="visual-main">4 CUT</div>
+                        <div id="visual-extra" class="fourcut"><span></span><span></span><span></span><span></span></div>
+                        <div id="visual-sub" class="visual-sub">오늘의 순간을 네 컷에 담아보세요</div>
+                    </div>
+
+                    <div id="filter-panel" class="choice-panel">
+                        <div class="choice-heading"><strong>필터를 확인해 보세요</strong><span>현재 선택된 필터가 강조됩니다</span></div>
+                        <div class="filter-grid">
+                            <div class="choice-item" data-filter-option="0"><div class="filter-thumb"></div><div class="choice-name">원본</div></div>
+                            <div class="choice-item" data-filter-option="1"><div class="filter-thumb filter-gray"></div><div class="choice-name">흑백</div></div>
+                            <div class="choice-item" data-filter-option="2"><div class="filter-thumb filter-sepia"></div><div class="choice-name">세피아</div></div>
+                            <div class="choice-item" data-filter-option="3"><div class="filter-thumb filter-soft"></div><div class="choice-name">소프트</div></div>
+                            <div class="choice-item filter-film-wrap" data-filter-option="4"><div class="filter-thumb filter-film"></div><div class="choice-name">필름</div></div>
+                        </div>
+                    </div>
+
+                    <div id="sticker-panel" class="choice-panel">
+                        <div class="choice-heading"><strong>스티커를 골라보세요</strong><span>오른쪽 버튼으로 종류를 변경할 수 있어요</span></div>
+                        <div class="sticker-grid">
+                            <div class="choice-item sticker-item" data-sticker-option="0">
+                                <svg class="sticker-icon" viewBox="0 0 100 100" aria-label="하트"><path fill="currentColor" d="M50 88 14 54C-5 36 7 8 31 10c9 1 15 6 19 13 4-7 10-12 19-13 24-2 36 26 17 44L50 88Z"/></svg>
+                                <div class="choice-name">하트</div>
+                            </div>
+                            <div class="choice-item sticker-item" data-sticker-option="1">
+                                <svg class="sticker-icon" viewBox="0 0 100 100" aria-label="별"><path fill="currentColor" d="m50 7 13 27 30 4-22 21 6 30-27-14-27 14 6-30L7 38l30-4L50 7Z"/></svg>
+                                <div class="choice-name">별</div>
+                            </div>
+                            <div class="choice-item sticker-item" data-sticker-option="2">
+                                <svg class="sticker-icon" viewBox="0 0 100 100" aria-label="스마일"><circle cx="50" cy="50" r="42" fill="currentColor"/><circle cx="35" cy="40" r="5" fill="white"/><circle cx="65" cy="40" r="5" fill="white"/><path d="M29 57c5 17 37 17 42 0" fill="none" stroke="white" stroke-width="7" stroke-linecap="round"/></svg>
+                                <div class="choice-name">스마일</div>
+                            </div>
+                        </div>
+                        <div id="sticker-pending" class="sticker-pending">Sticker ID 3은 실제 디자인 확정 후 교체할 예비 항목입니다.</div>
+                    </div>
+
+                    <div id="draw-panel" class="choice-panel">
+                        <div class="choice-heading"><strong>도구와 색상을 확인하세요</strong><span>현재 사용 중인 항목이 강조됩니다</span></div>
+                        <div class="tool-grid">
+                            <div class="choice-item tool-item" data-tool-option="2"><div class="tool-icon">✎</div><div class="tool-copy"><strong>그리기</strong><span>선으로 직접 꾸미기</span></div></div>
+                            <div class="choice-item tool-item" data-tool-option="3"><div class="tool-icon">▦</div><div class="tool-copy"><strong>모자이크</strong><span>선택 영역 가리기</span></div></div>
+                        </div>
+                        <div class="palette-label">그리기 색상</div>
+                        <div class="palette">
+                            <div class="color-item" data-color-option="0"><i class="color-dot" style="background:#292524"></i><span>검정</span></div>
+                            <div class="color-item" data-color-option="1"><i class="color-dot" style="background:#ef5b5b"></i><span>빨강</span></div>
+                            <div class="color-item" data-color-option="2"><i class="color-dot" style="background:#f3914c"></i><span>주황</span></div>
+                            <div class="color-item" data-color-option="3"><i class="color-dot" style="background:#f3cf4f"></i><span>노랑</span></div>
+                            <div class="color-item" data-color-option="4"><i class="color-dot" style="background:#55b97c"></i><span>초록</span></div>
+                            <div class="color-item" data-color-option="5"><i class="color-dot" style="background:#5597e6"></i><span>파랑</span></div>
+                            <div class="color-item" data-color-option="6"><i class="color-dot" style="background:#43569c"></i><span>남색</span></div>
+                            <div class="color-item" data-color-option="7"><i class="color-dot" style="background:#9b68ce"></i><span>보라</span></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="copy">
+                <div id="eyebrow" class="eyebrow">STEP 1 · OPEN</div>
+                <h1 id="title">반가워요!</h1>
+                <p id="description" class="description">카메라 준비가 끝나면 촬영을 시작할 수 있어요.</p>
+                <div id="chips" class="chips"></div>
+                <div id="progress-wrap" class="progress-wrap">
+                    <div class="progress-head"><span>사진 전송 중</span><span id="progress-value">0%</span></div>
+                    <progress id="progress" max="100" value="0"></progress>
+                </div>
+                <div id="hint" class="hint">안내에 따라 버튼을 눌러 진행해 주세요.</div>
+            </div>
+        </div>
+
+        <div class="result">
+            <div class="result-photo">
+                <div id="result-empty" class="result-empty">완성 사진을 불러오고 있어요.<br>잠시만 기다려 주세요.</div>
+                <img id="result-image" alt="완성된 네컷 사진">
+            </div>
+            <div class="result-side">
+                <div class="finish">PHOTO COMPLETE</div>
+                <h2>사진이 완성됐어요!</h2>
+                <p id="result-guide">QR을 촬영하면 휴대폰에서 사진을 확인하고 저장할 수 있어요.</p>
+                <img id="qr" class="qr" alt="사진 다운로드 QR">
+                <a id="open-photo" class="open-photo" target="_blank">사진 페이지 열기</a>
+            </div>
+        </div>
+    </section>
+</main>
+
+<script>
+const filterNames = ["원본", "흑백", "세피아", "소프트", "필름", "필터 5", "필터 6", "필터 7"];
+const stickerNames = ["하트", "별", "스마일", "예비 스티커"];
+const stickerSizes = ["작게", "보통", "크게", "아주 크게"];
+const drawColors = ["검정", "빨강", "주황", "노랑", "초록", "파랑", "남색", "보라"];
+const stateView = {
+    0: { code: "OPEN", title: "반가워요!", desc: "카메라 준비가 끝나면 촬영을 시작할 수 있어요.", label: "WELCOME", main: "4 CUT", sub: "오늘의 순간을 네 컷에 담아보세요", hint: "준비가 완료되면 외부 버튼을 눌러 시작해 주세요." },
+    1: { code: "SHOOT", title: "필터를 골라주세요", desc: "원하는 분위기를 선택한 뒤 촬영을 시작해 주세요.", label: "NEXT PHOTO", main: "1 / 4", sub: "화면을 보며 포즈를 준비해 주세요", hint: "오른쪽 버튼으로 필터를 변경하고 외부 버튼으로 촬영합니다." },
+    2: { code: "CAPTURE", title: "찰칵! 촬영 중이에요", desc: "움직이지 말고 잠시만 그대로 있어 주세요.", label: "NOW SHOOTING", main: "1", sub: "번째 사진을 촬영하고 있어요", hint: "사진 저장이 끝나면 다음 촬영으로 자동 이동합니다." },
+    3: { code: "STICKER", title: "스티커로 꾸며주세요", desc: "마커를 움직여 원하는 위치에 스티커를 놓아보세요.", label: "DECORATE", main: "STICKER", sub: "마음에 드는 스티커와 크기를 선택하세요", hint: "스티커 ID와 크기를 고른 뒤 배치 버튼을 눌러 주세요." },
+    4: { code: "DRAW", title: "마지막으로 꾸며주세요", desc: "그림을 그리거나 원하는 부분에 모자이크를 적용할 수 있어요.", label: "EDIT", main: "DRAW", sub: "도구를 선택하고 화면에서 편집하세요", hint: "편집이 끝나면 외부 버튼을 눌러 완성합니다." },
+    5: { code: "FINAL EXPORT", title: "완성 사진을 만들고 있어요", desc: "사진을 휴대폰으로 전송할 수 있게 준비하고 있습니다.", label: "SAVING", main: "WAIT", sub: "화면을 닫지 말고 잠시만 기다려 주세요", hint: "전송이 끝나면 완성 사진과 QR이 자동으로 표시됩니다." },
+    6: { code: "RESULT", title: "사진이 완성됐어요!", desc: "QR을 촬영해 사진을 저장해 주세요.", label: "COMPLETE", main: "DONE", sub: "소중한 오늘을 간직하세요", hint: "" }
+};
+
+let renderedState = null;
+let shownPhotoId = null;
+let shownQrKey = null;
+
+function chip(text, accent = false) {
+    return `<span class="chip${accent ? " accent" : ""}">${text}</span>`;
+}
+
+function updateStepper(stateCode) {
+    document.querySelectorAll(".step").forEach((item) => {
+        const step = Number(item.dataset.step);
+        item.classList.toggle("done", step < stateCode);
+        item.classList.toggle("current", step === stateCode);
+    });
+}
+
+function buildStateDetails(data) {
+    const count = Math.min(Number(data.capture_count || 0), 4);
+    const nextShot = Math.min(count + 1, 4);
+    const filter = filterNames[Number(data.filter_sel || 0)] || "원본";
+    const frame = Number(data.frame_sel || 0) ? "프레임 B" : "프레임 A";
+    const editMode = Number(data.edit_mode || 0);
+    const tool = editMode === 3 ? "모자이크" : editMode === 2 ? "그리기" : "편집";
+    const color = drawColors[Number(data.draw_color || 0)] || "검정";
+    const state = Number(data.state_code || 0);
+
+    if (state === 0) {
+        return {
+            main: data.cam_ready ? "READY" : "HELLO",
+            chips: chip(data.cam_ready ? "카메라 준비 완료" : "카메라 준비 중", data.cam_ready) + chip(frame)
+        };
+    }
+    if (state === 1) {
+        return { main: `${nextShot} / 4`, chips: chip(`필터 · ${filter}`, true) + chip(frame) + chip(`${count}장 완료`) };
+    }
+    if (state === 2) {
+        return { main: String(nextShot), chips: chip(`${nextShot}번째 촬영`, true) + chip(`필터 · ${filter}`) + chip(`${count}장 완료`) };
+    }
+    if (state === 3) {
+        return { main: "STICKER", chips: chip(`스티커 · ${stickerNames[Number(data.sticker_id || 0)]}`, true) + chip(`크기 · ${stickerSizes[Number(data.sticker_size || 0)]}`) + chip("4장 촬영 완료") };
+    }
+    if (state === 4) {
+        return { main: tool === "모자이크" ? "MOSAIC" : "DRAW", chips: chip(`도구 · ${tool}`, true) + chip(`색상 · ${color}`) + chip(data.edit_active ? "적용 중" : "선택 중") };
+    }
+    if (state === 5) {
+        return { main: `${Number(data.receive_progress || 0)}%`, chips: chip("최종 이미지", true) + chip("안전하게 전송 중") };
+    }
+    return { main: "DONE", chips: "" };
+}
+
+function updateChoicePanels(data, stateCode) {
+    const panelStates = [1, 3, 4];
+    document.getElementById("visual-default").style.display = panelStates.includes(stateCode) ? "none" : "block";
+    document.getElementById("filter-panel").style.display = stateCode === 1 ? "block" : "none";
+    document.getElementById("sticker-panel").style.display = stateCode === 3 ? "block" : "none";
+    document.getElementById("draw-panel").style.display = stateCode === 4 ? "block" : "none";
+
+    const filter = Number(data.filter_sel || 0);
+    document.querySelectorAll("[data-filter-option]").forEach((item) => {
+        item.classList.toggle("active", Number(item.dataset.filterOption) === filter);
+    });
+
+    const sticker = Number(data.sticker_id || 0);
+    document.querySelectorAll("[data-sticker-option]").forEach((item) => {
+        item.classList.toggle("active", Number(item.dataset.stickerOption) === sticker);
+    });
+    document.getElementById("sticker-pending").style.display = stateCode === 3 && sticker === 3 ? "block" : "none";
+
+    const editMode = Number(data.edit_mode || 0);
+    document.querySelectorAll("[data-tool-option]").forEach((item) => {
+        item.classList.toggle("active", Number(item.dataset.toolOption) === editMode);
+    });
+
+    const color = Number(data.draw_color || 0);
+    document.querySelectorAll("[data-color-option]").forEach((item) => {
+        item.classList.toggle("active", Number(item.dataset.colorOption) === color);
+    });
+}
+
+function updateWorkflow(data) {
+    const stateCode = Math.min(Math.max(Number(data.state_code || 0), 0), 6);
+    const view = stateView[stateCode] || stateView[0];
+    const details = buildStateDetails(data);
+    document.body.classList.toggle("result-mode", stateCode === 6);
+    document.body.classList.toggle("export-mode", stateCode === 5);
+    updateStepper(stateCode);
+    updateChoicePanels(data, stateCode);
+
+    if (renderedState !== stateCode) {
+        renderedState = stateCode;
+        document.getElementById("eyebrow").textContent = `STEP ${stateCode + 1} · ${view.code}`;
+        document.getElementById("title").textContent = view.title;
+        document.getElementById("description").textContent = view.desc;
+        document.getElementById("visual-label").textContent = view.label;
+        document.getElementById("visual-sub").textContent = view.sub;
+        document.getElementById("hint").textContent = view.hint;
+        document.getElementById("visual-extra").style.display = stateCode === 0 ? "grid" : "none";
+    }
+
+    document.getElementById("visual-main").textContent = details.main;
+    document.getElementById("chips").innerHTML = details.chips;
+    document.getElementById("progress").value = Number(data.receive_progress || 0);
+    document.getElementById("progress-value").textContent = `${Number(data.receive_progress || 0)}%`;
+}
+
+function clearExpiredPhoto() {
+    shownPhotoId = null;
+    shownQrKey = null;
+    const image = document.getElementById("result-image");
+    image.removeAttribute("src");
+    image.style.display = "none";
+    document.getElementById("result-empty").innerHTML = "사진 링크가 만료되었어요.<br>다음 촬영을 시작해 주세요.";
+    document.getElementById("result-empty").style.display = "block";
+    const qr = document.getElementById("qr");
+    qr.removeAttribute("src");
+    qr.style.display = "none";
+    document.getElementById("open-photo").style.display = "none";
+    document.getElementById("result-guide").textContent = "QR 링크가 만료되었습니다.";
+}
+
+function updateResult(data) {
+    if (!data.photo_id) {
+        if (data.photo_expired) clearExpiredPhoto();
+        return;
+    }
+
+    if (data.photo_id !== shownPhotoId) {
+        shownPhotoId = data.photo_id;
+        const image = document.getElementById("result-image");
+        image.src = `/photos/${data.photo_id}.png?t=${Date.now()}`;
+        image.style.display = "block";
+        document.getElementById("result-empty").style.display = "none";
+    }
+
+    if (data.photo_page_url) {
+        const qrKey = `${data.photo_id}|${data.photo_page_url}`;
+        const qr = document.getElementById("qr");
+        if (qrKey !== shownQrKey) {
+            shownQrKey = qrKey;
+            qr.src = `/qr/${data.photo_id}.png?t=${Date.now()}`;
+        }
+        qr.style.display = "block";
+        const openPhoto = document.getElementById("open-photo");
+        openPhoto.href = data.photo_page_url;
+        openPhoto.style.display = "block";
+        document.getElementById("result-guide").textContent = "QR을 촬영하면 휴대폰에서 사진을 확인하고 저장할 수 있어요.";
+    }
+}
+
+async function pollStatus() {
+    try {
+        const response = await fetch("/api/status", {cache: "no-store"});
+        const data = await response.json();
+        const systemState = document.getElementById("system-state");
+        systemState.classList.toggle("ready", Boolean(data.connected || data.test_mode));
+        document.getElementById("system-text").textContent = data.test_mode ? "화면 시험 중" : data.connected ? "촬영 준비 완료" : "시스템 준비 중";
+        updateWorkflow(data);
+        updateResult(data);
+    } catch (error) {
+        document.getElementById("system-text").textContent = "시스템을 확인하고 있어요";
+    }
+}
+
+pollStatus();
+setInterval(pollStatus, 300);
+</script>
+</body>
+</html>

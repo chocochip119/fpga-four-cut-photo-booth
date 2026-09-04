@@ -1,8 +1,8 @@
 `timescale 1ns / 1ps
 
 module Image_ROM #(
-    parameter int IMG_W = 320,
-    parameter int IMG_H = 240,
+    parameter int IMG_W = 640,
+    parameter int IMG_H = 480,
     parameter int ADDR_WIDTH = (IMG_W * IMG_H <= 1)
                              ? 1 : $clog2(IMG_W * IMG_H),
     parameter string MEM_FILE = "sunset.mem"
