@@ -26,7 +26,7 @@ System Controller와 이미지 처리 블록의 내부 신호에 연결해야 �
 | `TOP_UART_ROM.sv` | 시험용 Controller, ROM, UART RTL을 연결한 Basys3 Top |
 | `TOP_UART_ROM_Basys3.xdc` | 시험용 버튼, LED, UART TX 핀 설정 |
 | `tb_TOP_UART_ROM.sv` | 전체 UART ROM 전송 시뮬레이션 |
-| `sunset.mem` | 실제 보드 시험용 320×240 RGB565 데이터 |
+| `sunset.mem` | 실제 보드 시험용 640×480 RGB565 데이터 |
 | `sunset_2x2.mem` | 빠른 시뮬레이션용 2×2 데이터 |
 
 이 폴더의 파일은 UART 전송을 실제 보드에서 단독 시험하기 위해 추가한 것이며,
@@ -94,3 +94,30 @@ Top Module은 `TOP_UART_ROM`이다.
 
 BAT 창을 닫으면 Cloudflare 공개 주소도 종료된다. FPGA RTL이나 비트스트림을
 바꾸지 않고 Python 파일만 다시 실행해도 웹 화면 변경 사항은 적용된다.
+
+## 실행 전 설치 확인
+
+`03_PC_PYTHON_WEB` 폴더에서 `check_requirements.bat`을 실행하면 Python, pyserial, Pillow, Flask, qrcode, cloudflared 설치 여부를 확인할 수 있습니다.
+
+PowerShell에서 직접 확인하려면:
+
+```powershell
+python --version
+python -c "import serial, PIL, flask, qrcode; print('Python packages OK')"
+cloudflared --version
+```
+
+Python 패키지가 빠졌다면:
+
+```powershell
+cd 03_PC_PYTHON_WEB
+python -m pip install -r requirements.txt
+```
+
+## 640×480 기준
+
+- 한 프레임: `640 × 480 = 307,200 Pixel`
+- RGB444 UART payload: `2 Byte/Pixel`
+- 한 프레임 Pixel payload: `614,400 Byte`
+- Status는 별도 `4 Byte`
+- 최종 이미지 전송 State: `FINAL_EXPORT = 5`
