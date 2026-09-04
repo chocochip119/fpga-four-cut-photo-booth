@@ -327,6 +327,11 @@ def dashboard() -> str:
     )
 
 
+@app.get("/user")
+def user_view() -> str:
+    return render_template("user.html")
+
+
 @app.get("/api/status")
 def api_status():
     return jsonify(dashboard_state.snapshot())
