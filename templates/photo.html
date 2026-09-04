@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="ko">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>네컷 사진 저장</title>
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            min-height: 100vh;
+            display: grid;
+            place-items: center;
+            background: #11131a;
+            color: #f5f7fb;
+            font-family: Pretendard, "Malgun Gothic", sans-serif;
+        }
+        main { width: min(94vw, 700px); padding: 24px 0 40px; text-align: center; }
+        h1 { font-size: 25px; margin: 0 0 18px; }
+        img { width: 100%; max-height: 72vh; object-fit: contain; background: #090a0e; border-radius: 16px; }
+        .save {
+            display: block;
+            width: 100%;
+            margin-top: 18px;
+            padding: 16px;
+            border-radius: 13px;
+            background: #7c6cff;
+            color: white;
+            text-decoration: none;
+            font-size: 18px;
+            font-weight: 800;
+        }
+        p { color: #aeb6c7; line-height: 1.6; }
+    </style>
+</head>
+<body>
+<main>
+    <h1>완성된 네컷 사진</h1>
+    <img src="{{ url_for('photo_file', photo_id=photo_id) }}" alt="완성 사진">
+    <a class="save" href="{{ url_for('download_photo', photo_id=photo_id) }}">사진 저장하기</a>
+    <p>아이폰에서 사진첩에 바로 들어가지 않으면 이미지를 길게 누르거나 공유 메뉴에서 ‘이미지 저장’을 선택하세요.</p>
+</main>
+</body>
+</html>
