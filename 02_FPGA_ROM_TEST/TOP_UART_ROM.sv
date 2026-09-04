@@ -1,8 +1,8 @@
 `timescale 1ns / 1ps
 
 module TOP_UART_ROM #(
-    parameter int IMG_W = 320,
-    parameter int IMG_H = 240,
+    parameter int IMG_W = 640,
+    parameter int IMG_H = 480,
     parameter int CLK_FREQ = 100_000_000,
     parameter int BAUD_RATE = 1_000_000,
     parameter string MEM_FILE = "sunset.mem"
@@ -15,7 +15,7 @@ module TOP_UART_ROM #(
 );
 
     localparam logic [3:0] STATE_IDLE   = 4'h0;
-    localparam logic [3:0] STATE_EXPORT = 4'h1;
+    localparam logic [3:0] STATE_EXPORT = 4'h5;
     localparam int ADDR_WIDTH = (IMG_W * IMG_H <= 1)
                               ? 1 : $clog2(IMG_W * IMG_H);
 
@@ -36,7 +36,6 @@ module TOP_UART_ROM #(
     logic                  pixel_valid;
     logic                  pixel_ready;
 
-    // Synchronize the physical push button and generate one rising-edge pulse.
     always_ff @(posedge clk) begin
         if (rst) begin
             btn_meta   <= 1'b0;
