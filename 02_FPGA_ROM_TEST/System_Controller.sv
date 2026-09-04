@@ -2,7 +2,7 @@
 
 module System_Controller #(
     parameter logic [3:0] STATE_IDLE   = 4'h0,
-    parameter logic [3:0] STATE_EXPORT = 4'h1
+    parameter logic [3:0] STATE_EXPORT = 4'h5
 )(
     input  logic        clk,
     input  logic        rst,
