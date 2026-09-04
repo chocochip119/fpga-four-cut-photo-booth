@@ -80,7 +80,8 @@ const STATE_NAMES = {
 };
 
 const params = new URLSearchParams(location.search);
-const requested = Number(params.get("state"));
+const rawState = params.get("state");
+const requested = rawState === null || rawState.trim() === "" ? NaN : Number(rawState);
 let overrideState = Number.isInteger(requested) && requested >= 0 && requested <= 6 ? requested : 3;
 const preview = document.getElementById("preview");
 
