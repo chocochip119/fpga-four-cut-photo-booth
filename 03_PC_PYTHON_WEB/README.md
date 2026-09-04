@@ -5,13 +5,26 @@
 `run_settings.bat`으로 별도 관리자 화면을 열어 처리한다. FPGA 없이 확인할
 때만 관리자 화면의 `sunset.mem으로 시험` 버튼을 사용한다.
 
-## UART를 유지한 UI State 디버깅
+## 실행 전 필수 설치 확인
 
-`run_debug.bat`을 실행하면 디버그 전용 사용자 화면이 열리고 기본 표시 State는
-`STICKER`로 시작한다. 상단 버튼으로 `OPEN`, `SHOOT`, `CAPTURE`, `STICKER`,
-`DRAW`, `FINAL_EXPORT`, `RESULT`를 즉시 선택하거나 `실제 State 사용`으로 돌아갈 수 있다.
+가장 빠른 방법은 `check_requirements.bat` 실행입니다.
 
-이 기능은 FPGA의 실제 State를 변경하지 않으며 UART 연결도 끊지 않는다. 실제
-`/api/status` 수신은 계속 유지하고 디버그 화면 안에서 `state_code/state_name`만
-임시로 바꾼다. 따라서 Sticker ID, Draw Color, Marker 관련 값과 다른 Status bit는
-실제 UART 수신값을 그대로 확인할 수 있다.
+직접 확인:
+
+```powershell
+python --version
+python -c "import serial, PIL, flask, qrcode; print('Python packages OK')"
+cloudflared --version
+```
+
+빠진 Python 패키지 설치:
+
+```powershell
+python -m pip install -r requirements.txt
+```
+
+현재 기본 이미지 크기는 **640×480**이며 `web_config.json`, UART CLI 기본값, FPGA UART RTL 기본 파라미터가 동일하게 맞춰져 있습니다.
+
+## UART 유지 State Override
+
+`run_web.bat`으로 서버와 UART를 실행/연결한 뒤 `run_debug.bat`을 실행합니다. 기본 화면은 `STICKER`이며, `실제 State 사용 / OPEN / SHOOT / CAPTURE / STICKER / DRAW / FINAL_EXPORT / RESULT`를 즉시 전환할 수 있습니다. 실제 UART 수신과 Status 값은 계속 유지되고 사용자 화면의 State 표시만 덮어씁니다.
