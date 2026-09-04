@@ -26,11 +26,15 @@ System Controller와 이미지 처리 블록의 내부 신호에 연결해야 �
 | `TOP_UART_ROM.sv` | 시험용 Controller, ROM, UART RTL을 연결한 Basys3 Top |
 | `TOP_UART_ROM_Basys3.xdc` | 시험용 버튼, LED, UART TX 핀 설정 |
 | `tb_TOP_UART_ROM.sv` | 전체 UART ROM 전송 시뮬레이션 |
-| `sunset.mem` | 실제 보드 시험용 640×480 RGB565 데이터 |
+| `sunset.mem` | 실제 보드 시험용 640×480 RGB565 데이터 — 다운로드 ZIP에 포함, Git에는 미추적 |
 | `sunset_2x2.mem` | 빠른 시뮬레이션용 2×2 데이터 |
 
 이 폴더의 파일은 UART 전송을 실제 보드에서 단독 시험하기 위해 추가한 것이며,
 최종 팀 설계의 Controller, Frame Buffer 또는 이미지 처리 블록을 대신하지 않는다.
+
+전체 640×480 `sunset.mem`은 채팅으로 전달한 다운로드 ZIP에는 포함하지만 저장소에는
+커밋하지 않는다. 따라서 GitHub에서 ROM 보드 시험을 직접 수행하려면 ZIP의
+`02_FPGA_ROM_TEST/sunset.mem`을 해당 폴더에 추가해야 한다.
 
 현재 ROM 시험 비트스트림을 다시 만들 때는 다음 파일을 Vivado Design Sources에
 함께 추가한다.
@@ -53,11 +57,32 @@ Top Module은 `TOP_UART_ROM`이다.
 | `run_web.bat` | 웹 화면과 Cloudflare Tunnel 실행 |
 | `run_settings.bat` | COM 포트와 서버를 설정하는 관리자 화면 열기 |
 | `run_receiver.bat` | 웹 없이 UART 사진 파일만 받는 실행 파일 |
+| `run_debug.bat` | UART를 유지한 채 사용자 화면 State만 강제 표시 |
+| `install_requirements.bat` | Python 패키지와 cloudflared 설치 |
+| `check_requirements.bat` | Python 패키지와 cloudflared 설치 여부 확인 |
 | `web_config.json` | Baud Rate, 해상도, State, 포트, 만료 시간 설정 |
 | `requirements.txt` | Python 패키지 목록 |
 | `templates/user.html` | 사용자에게 표시되는 State, 사진, QR 전용 화면 |
 | `templates/dashboard.html` | COM, 서버 상태, 기록, 시험용 관리자 화면 |
 | `templates/photo.html` | QR을 촬영한 휴대폰의 사진 저장 화면 |
+
+### 처음 한 번 설치
+
+`03_PC_PYTHON_WEB` 폴더에서 다음 파일을 실행한다.
+
+```text
+install_requirements.bat
+```
+
+이 파일은 `requirements.txt`의 Python 패키지를 설치하고, `cloudflared`가 없으면
+`winget install --id Cloudflare.cloudflared -e`로 별도 설치한다. `cloudflared`는
+Python 패키지가 아니므로 `requirements.txt`만으로는 설치되지 않는다.
+
+설치 확인:
+
+```text
+check_requirements.bat
+```
 
 ### 실행 순서
 
@@ -67,7 +92,7 @@ Top Module은 `TOP_UART_ROM`이다.
 4. 설정 화면에서 `휴대폰 공개 주소 준비 완료`를 확인한다.
 5. Basys3 COM 포트를 선택하고 `연결`을 누른다.
 6. 설정 탭은 닫아도 되며 사용자 화면은 계속 유지한다.
-7. FPGA의 EXPORT 버튼을 누른다.
+7. FPGA의 FINAL_EXPORT 동작을 실행한다.
 8. 사진 수신 완료 후 사용자 화면에 표시되는 QR을 휴대폰으로 촬영한다.
 
 ### 화면 주소 구분
@@ -80,7 +105,8 @@ Top Module은 `TOP_UART_ROM`이다.
 사용자 화면에는 COM 포트, 서버 주소, UART 기록, 시험 버튼이 나타나지 않는다.
 
 `sunset.mem으로 시험` 버튼은 FPGA 없이 웹과 QR만 점검할 때 사용한다. 이 버튼은
-`02_FPGA_ROM_TEST/sunset.mem`을 읽는다.
+`02_FPGA_ROM_TEST/sunset.mem`을 읽으므로 GitHub 소스만 받은 경우에는 별도 파일 추가가
+필요하다.
 
 ## QR 만료 동작
 
@@ -92,27 +118,9 @@ Top Module은 `TOP_UART_ROM`이다.
 "photo_expire_minutes": 30
 ```
 
-BAT 창을 닫으면 Cloudflare 공개 주소도 종료된다. FPGA RTL이나 비트스트림을
-바꾸지 않고 Python 파일만 다시 실행해도 웹 화면 변경 사항은 적용된다.
-
-## 실행 전 설치 확인
-
-`03_PC_PYTHON_WEB` 폴더에서 `check_requirements.bat`을 실행하면 Python, pyserial, Pillow, Flask, qrcode, cloudflared 설치 여부를 확인할 수 있습니다.
-
-PowerShell에서 직접 확인하려면:
-
-```powershell
-python --version
-python -c "import serial, PIL, flask, qrcode; print('Python packages OK')"
-cloudflared --version
-```
-
-Python 패키지가 빠졌다면:
-
-```powershell
-cd 03_PC_PYTHON_WEB
-python -m pip install -r requirements.txt
-```
+정상 종료뿐 아니라 Windows 콘솔 종료 이벤트에서도 `cloudflared` 정리 처리를 수행한다.
+FPGA RTL이나 비트스트림을 바꾸지 않고 Python 파일만 다시 실행해도 웹 화면 변경 사항은
+적용된다.
 
 ## 640×480 기준
 
