@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="ko">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#fffaf3">
+    <title>Four Cut Studio · 사진 저장</title>
+    <style>
+        :root {
+            color-scheme: light;
+            --cream: #fffaf3;
+            --paper: #ffffff;
+            --ink: #282321;
+            --muted: #817772;
+            --line: #e9dfd7;
+            --coral: #ff776d;
+            --coral-dark: #dc5d55;
+            --coral-soft: #ffe0da;
+            --peach: #ffca9f;
+            --lavender: #ddd5ff;
+            --mint: #cce9dc;
+        }
+        * { box-sizing: border-box; }
+        html, body { margin: 0; min-height: 100%; }
+        body {
+            min-height: 100vh;
+            color: var(--ink);
+            background:
+                radial-gradient(circle at 2% 2%, rgba(255,202,159,.38), transparent 30%),
+                radial-gradient(circle at 100% 95%, rgba(221,213,255,.44), transparent 32%),
+                var(--cream);
+            font-family: Pretendard, "Malgun Gothic", sans-serif;
+        }
+        .shell { width: min(100%, 820px); margin: auto; padding: 22px 18px 42px; }
+        .topbar { display: flex; justify-content: space-between; align-items: center; gap: 14px; margin-bottom: 20px; }
+        .brand { font-size: 21px; font-weight: 950; letter-spacing: -.035em; }
+        .brand b { color: var(--coral); }
+        .complete {
+            display: inline-flex; align-items: center; gap: 7px; padding: 9px 12px;
+            border: 1px solid var(--line); border-radius: 999px; background: rgba(255,255,255,.84);
+            color: #5f766a; font-size: 12px; font-weight: 900;
+        }
+        .complete::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: #55b58a; box-shadow: 0 0 0 4px rgba(85,181,138,.14); }
+        .card {
+            position: relative; overflow: hidden; padding: clamp(20px, 5vw, 38px);
+            border: 1px solid rgba(233,223,215,.96); border-radius: 30px;
+            background: rgba(255,255,255,.90); box-shadow: 0 24px 70px rgba(96,72,57,.11);
+        }
+        .card::before { content: ""; position: absolute; width: 160px; height: 160px; top: -92px; right: -70px; border-radius: 50%; background: var(--coral-soft); }
+        .intro { position: relative; text-align: center; }
+        .eyebrow { color: var(--coral); font-size: 12px; font-weight: 950; letter-spacing: .13em; }
+        h1 { margin: 10px 0 8px; font-size: clamp(30px, 7vw, 46px); line-height: 1.12; letter-spacing: -.05em; }
+        .description { margin: 0; color: var(--muted); font-size: 15px; line-height: 1.65; word-break: keep-all; }
+        .photo-wrap {
+            position: relative; display: grid; place-items: center; margin-top: 24px; padding: 12px;
+            border-radius: 23px; background: linear-gradient(145deg, #fff2e7, #f4efff);
+        }
+        .photo-wrap img {
+            display: block; width: 100%; max-height: 72vh; object-fit: contain;
+            border-radius: 16px; background: white; box-shadow: 0 15px 45px rgba(72,55,45,.14);
+        }
+        .save {
+            display: flex; justify-content: center; align-items: center; gap: 9px; width: 100%;
+            margin-top: 18px; padding: 17px 20px; border-radius: 15px; background: var(--coral);
+            color: white; text-decoration: none; font-size: 17px; font-weight: 950;
+            box-shadow: 0 10px 25px rgba(255,119,109,.28); transition: transform .15s ease, background .15s ease;
+        }
+        .save:hover, .save:active { background: var(--coral-dark); transform: translateY(-1px); }
+        .save svg { width: 20px; height: 20px; fill: currentColor; }
+        .guide { margin-top: 16px; padding: 16px; border-radius: 15px; background: #faf7f4; text-align: left; }
+        .guide strong { display: block; margin-bottom: 6px; font-size: 13px; }
+        .guide p { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.65; word-break: keep-all; }
+        .footer { margin-top: 18px; color: #a39790; font-size: 11px; text-align: center; line-height: 1.6; }
+        .dots { display: flex; justify-content: center; gap: 7px; margin-top: 17px; }
+        .dots span { width: 7px; height: 7px; border-radius: 50%; }
+        .dots span:nth-child(1) { background: var(--coral); }
+        .dots span:nth-child(2) { background: var(--peach); }
+        .dots span:nth-child(3) { background: var(--mint); }
+        .dots span:nth-child(4) { background: var(--lavender); }
+        @media (max-width: 520px) {
+            .shell { padding: 16px 12px 30px; }
+            .topbar { margin: 0 4px 14px; }
+            .brand { font-size: 18px; }
+            .complete { padding: 8px 10px; font-size: 11px; }
+            .card { padding: 20px 14px; border-radius: 24px; }
+            .photo-wrap { margin-top: 20px; padding: 8px; border-radius: 18px; }
+            .photo-wrap img { max-height: 65vh; border-radius: 12px; }
+        }
+    </style>
+</head>
+<body>
+<main class="shell">
+    <header class="topbar">
+        <div class="brand">FOUR CUT <b>STUDIO</b></div>
+        <div class="complete">사진 완성</div>
+    </header>
+
+    <section class="card">
+        <div class="intro">
+            <div class="eyebrow">YOUR FOUR CUT</div>
+            <h1>오늘의 사진이 완성됐어요!</h1>
+            <p class="description">아래 버튼을 눌러 소중한 네컷 사진을 휴대폰에 저장해 주세요.</p>
+        </div>
+
+        <div class="photo-wrap">
+            <img src="{{ url_for('photo_file', photo_id=photo_id) }}" alt="완성된 네컷 사진">
+        </div>
+
+        <a class="save" href="{{ url_for('download_photo', photo_id=photo_id) }}" download>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 3h2v10.17l3.59-3.58L18 11l-6 6-6-6 1.41-1.41L11 13.17V3Zm-6 16h14v2H5v-2Z"/></svg>
+            사진 저장하기
+        </a>
+
+        <div class="guide">
+            <strong>사진이 바로 저장되지 않나요?</strong>
+            <p>아이폰은 사진을 길게 누르거나 공유 메뉴에서 ‘이미지 저장’을 선택해 주세요. 저장 버튼을 누르면 원본 PNG 파일을 받을 수 있습니다.</p>
+        </div>
+
+        <div class="dots"><span></span><span></span><span></span><span></span></div>
+        <div class="footer">사진 링크는 설정된 시간이 지나면 자동으로 만료됩니다.</div>
+    </section>
+</main>
+</body>
+</html>

@@ -1,100 +1,96 @@
-# fpga-four-cut-photo-booth
+# UART 사진 전송 패키지 파일 구분
 
-Basys3 FPGA 기반 네컷 포토부스 프로젝트의 UART 이미지 전송 및 Python 웹 UI 통합 코드입니다.
+이 패키지는 실제 UART RTL, ROM 연동 시험용 FPGA 코드, PC Python 프로그램을
+서로 섞이지 않도록 세 폴더로 분리했다.
 
-> Review workflow test: Copilot 및 CodeRabbit PR 리뷰 연동 확인용 변경입니다.
+## 1. `01_FPGA_UART_RTL` — 실제 프로젝트에 사용하는 UART RTL
 
-## 현재 UART 통합 범위
+| 파일 | 역할 |
+|---|---|
+| `Send_Control.sv` | Status 4Byte 및 RGB444 Pixel 2Byte 전송 순서 제어 |
+| `UART_Interface_Top.sv` | Send Control, Baud Generator, UART TX 연결 |
+| `Baud_Generator.sv` | UART Baud tick 생성 |
+| `UART_TX.sv` | 8bit 데이터를 UART 1bit TX 신호로 송신 |
 
-- Basys3 100 MHz 기준 UART TX
-- 1 Mbps 기본 Baud Rate
-- `status_data[31:28]` 기반 State 전송
-- EXPORT State에서 RGB444 12-bit Pixel을 2 Byte로 전송
-- ROM 기반 320×240 이미지 전송 테스트 Top
-- Vivado 통합 Testbench 및 Basys3 XDC
-- Python `pyserial` 이미지 수신 및 PNG 저장
-- Flask 웹 UI에서 COM 포트 연결, State 확인, 이미지 표시, QR 생성
-- 운영용 Dashboard와 별도 사용자용 Photo Booth 화면 제공
+이 네 파일이 사용자가 담당한 실제 UART 전송 블록이다. 최종 팀 프로젝트에서는
+`UART_Interface_Top`의 Status와 Pixel 포트를 보드 외부 핀으로 빼지 말고,
+System Controller와 이미지 처리 블록의 내부 신호에 연결해야 한다.
 
-## UART 데이터 형식
+## 2. `02_FPGA_ROM_TEST` — UART 단독 검증용 코드
 
-- IDLE State: `4'h0`
-- EXPORT State: `4'h1`
-- State 위치: `status_data[31:28]`
-- Status: 4 Byte, LSB Byte First
-- RGB444 Pixel: 2 Byte, LSB Byte First
-- UART 한 Byte 내부 Bit: LSB Bit First
+| 파일 | 역할 |
+|---|---|
+| `Image_ROM.sv` | `sunset.mem` RGB565 시험 이미지 저장 |
+| `UART_ROM_Reader.sv` | ROM RGB565를 RGB444로 잘라 Pixel valid/ready로 전달 |
+| `System_Controller.sv` | IDLE/EXPORT 상태를 만드는 시험용 Controller |
+| `TOP_UART_ROM.sv` | 시험용 Controller, ROM, UART RTL을 연결한 Basys3 Top |
+| `TOP_UART_ROM_Basys3.xdc` | 시험용 버튼, LED, UART TX 핀 설정 |
+| `tb_TOP_UART_ROM.sv` | 전체 UART ROM 전송 시뮬레이션 |
+| `sunset.mem` | 실제 보드 시험용 320×240 RGB565 데이터 |
+| `sunset_2x2.mem` | 빠른 시뮬레이션용 2×2 데이터 |
 
-Pixel은 다음 순서로 전송됩니다.
+이 폴더의 파일은 UART 전송을 실제 보드에서 단독 시험하기 위해 추가한 것이며,
+최종 팀 설계의 Controller, Frame Buffer 또는 이미지 처리 블록을 대신하지 않는다.
 
-```text
-Byte 0 = pixel[7:0]
-Byte 1 = {4'b0000, pixel[11:8]}
+현재 ROM 시험 비트스트림을 다시 만들 때는 다음 파일을 Vivado Design Sources에
+함께 추가한다.
+
+- `01_FPGA_UART_RTL`의 `.sv` 네 파일
+- `02_FPGA_ROM_TEST`의 `Image_ROM.sv`, `UART_ROM_Reader.sv`,
+  `System_Controller.sv`, `TOP_UART_ROM.sv`
+- Memory Initialization File: `sunset.mem`
+- Constraints: `TOP_UART_ROM_Basys3.xdc`
+- Simulation Sources: `tb_TOP_UART_ROM.sv`, `sunset_2x2.mem`
+
+Top Module은 `TOP_UART_ROM`이다.
+
+## 3. `03_PC_PYTHON_WEB` — PC 수신·웹·QR 프로그램
+
+| 파일/폴더 | 역할 |
+|---|---|
+| `uart_photo_web.py` | UART 수신, 사진 복원, 로컬 관리 화면, Cloudflare 실행 |
+| `receive_uart_image.py` | UART Byte 해석 및 RGB444 PNG 변환 공통 코드 |
+| `run_web.bat` | 웹 화면과 Cloudflare Tunnel 실행 |
+| `run_settings.bat` | COM 포트와 서버를 설정하는 관리자 화면 열기 |
+| `run_receiver.bat` | 웹 없이 UART 사진 파일만 받는 실행 파일 |
+| `web_config.json` | Baud Rate, 해상도, State, 포트, 만료 시간 설정 |
+| `requirements.txt` | Python 패키지 목록 |
+| `templates/user.html` | 사용자에게 표시되는 State, 사진, QR 전용 화면 |
+| `templates/dashboard.html` | COM, 서버 상태, 기록, 시험용 관리자 화면 |
+| `templates/photo.html` | QR을 촬영한 휴대폰의 사진 저장 화면 |
+
+### 실행 순서
+
+1. Basys3에 준비된 시험 비트스트림을 Program한다.
+2. `03_PC_PYTHON_WEB/run_web.bat`을 실행하면 사용자 화면이 열린다.
+3. 관리자는 `run_settings.bat`을 실행해 별도의 설정 화면을 연다.
+4. 설정 화면에서 `휴대폰 공개 주소 준비 완료`를 확인한다.
+5. Basys3 COM 포트를 선택하고 `연결`을 누른다.
+6. 설정 탭은 닫아도 되며 사용자 화면은 계속 유지한다.
+7. FPGA의 EXPORT 버튼을 누른다.
+8. 사진 수신 완료 후 사용자 화면에 표시되는 QR을 휴대폰으로 촬영한다.
+
+### 화면 주소 구분
+
+- 사용자 화면 `http://127.0.0.1:5000/`: 현재 State, 진행 상태, 사진, QR만 표시
+- 관리자 설정 `http://127.0.0.1:5000/settings`: COM 연결, Cloudflare 상태,
+  State 기록, 시험 기능 표시
+- 휴대폰 공개 페이지: 사진과 다운로드 버튼만 표시
+
+사용자 화면에는 COM 포트, 서버 주소, UART 기록, 시험 버튼이 나타나지 않는다.
+
+`sunset.mem으로 시험` 버튼은 FPGA 없이 웹과 QR만 점검할 때 사용한다. 이 버튼은
+`02_FPGA_ROM_TEST/sunset.mem`을 읽는다.
+
+## QR 만료 동작
+
+기본 공개 시간은 `web_config.json`의 `photo_expire_minutes` 값인 10분이다.
+만료되면 사진과 QR을 숨기고 `QR 링크가 만료되었습니다`라고 표시한다. 시간을
+바꾸려면 예를 들어 다음과 같이 수정한다.
+
+```json
+"photo_expire_minutes": 30
 ```
 
-## Vivado 테스트
-
-Design Sources:
-
-```text
-Image_ROM.sv
-UART_ROM_Reader.sv
-System_Controller.sv
-Send_Control.sv
-Baud_Generator.sv
-UART_TX.sv
-UART_Interface_Top.sv
-TOP_UART_ROM.sv
-```
-
-Simulation Sources:
-
-```text
-tb_TOP_UART_ROM.sv
-sunset_2x2.mem
-```
-
-Constraints:
-
-```text
-TOP_UART_ROM_Basys3.xdc
-```
-
-`TOP_UART_ROM`을 Top Module로 사용합니다.
-
-전체 320×240 ROM 전송을 합성하거나 웹의 샘플 이미지 기능을 사용할 경우 프로젝트 루트에 `sunset.mem`을 추가합니다. `sunset.mem`은 생성 가능한 샘플 이미지 데이터이므로 현재 Git 커밋에는 포함하지 않았습니다.
-
-## Python 실행
-
-```powershell
-pip install -r requirements.txt
-python receive_uart_image.py --port COM5 --baud 1000000
-```
-
-웹 UI:
-
-```powershell
-run_web.bat
-```
-
-또는:
-
-```powershell
-python uart_photo_web.py
-```
-
-운영용 Dashboard:
-
-```text
-http://127.0.0.1:5000
-```
-
-사용자용 Photo Booth 화면:
-
-```text
-http://127.0.0.1:5000/user
-```
-
-두 화면은 같은 Flask 서버와 UART 상태를 공유하므로 서버를 따로 실행할 필요가 없습니다.
-
-상세 사용 순서는 [README_사용순서.md](README_사용순서.md)를 참고하세요.
+BAT 창을 닫으면 Cloudflare 공개 주소도 종료된다. FPGA RTL이나 비트스트림을
+바꾸지 않고 Python 파일만 다시 실행해도 웹 화면 변경 사항은 적용된다.
