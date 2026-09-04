@@ -1,7 +1,7 @@
 {
   "baud_rate": 1000000,
-  "image_width": 320,
-  "image_height": 240,
+  "image_width": 640,
+  "image_height": 480,
   "export_state": 5,
   "web_port": 5000,
   "public_port": 5001,
