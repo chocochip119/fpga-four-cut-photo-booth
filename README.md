@@ -21,6 +21,7 @@ System Controller와 이미지 처리 블록의 내부 신호에 연결해야 �
 | 파일 | 역할 |
 |---|---|
 | `Image_ROM.sv` | `sunset.mem` RGB565 시험 이미지 저장 |
+| `image_to_mem.py` | JPG/PNG 이미지를 640×480 RGB565 `sunset.mem`으로 변환 |
 | `UART_ROM_Reader.sv` | ROM RGB565를 RGB444로 잘라 Pixel valid/ready로 전달 |
 | `System_Controller.sv` | IDLE/EXPORT 상태를 만드는 시험용 Controller |
 | `TOP_UART_ROM.sv` | 시험용 Controller, ROM, UART RTL을 연결한 Basys3 Top |
@@ -34,7 +35,17 @@ System Controller와 이미지 처리 블록의 내부 신호에 연결해야 �
 
 전체 640×480 `sunset.mem`은 채팅으로 전달한 다운로드 ZIP에는 포함하지만 저장소에는
 커밋하지 않는다. 따라서 GitHub에서 ROM 보드 시험을 직접 수행하려면 ZIP의
-`02_FPGA_ROM_TEST/sunset.mem`을 해당 폴더에 추가해야 한다.
+`02_FPGA_ROM_TEST/sunset.mem`을 해당 폴더에 추가하거나 `image_to_mem.py`로 직접 생성하면 된다.
+
+임의 JPG/PNG를 시험하려면 `02_FPGA_ROM_TEST` 폴더에서 다음과 같이 실행한다.
+
+```powershell
+python image_to_mem.py test.png
+```
+
+기본 출력은 `sunset.mem`이며, 640×480 기준으로 정상 생성되면 `Pixel 수: 307200`이
+표시된다. 생성 후 Python 관리자 화면의 `sunset.mem으로 시험` 버튼으로 이미지 복원,
+Web UI, QR 및 다운로드 기능을 FPGA 없이 확인할 수 있다.
 
 현재 ROM 시험 비트스트림을 다시 만들 때는 다음 파일을 Vivado Design Sources에
 함께 추가한다.
@@ -105,8 +116,8 @@ check_requirements.bat
 사용자 화면에는 COM 포트, 서버 주소, UART 기록, 시험 버튼이 나타나지 않는다.
 
 `sunset.mem으로 시험` 버튼은 FPGA 없이 웹과 QR만 점검할 때 사용한다. 이 버튼은
-`02_FPGA_ROM_TEST/sunset.mem`을 읽으므로 GitHub 소스만 받은 경우에는 별도 파일 추가가
-필요하다.
+`02_FPGA_ROM_TEST/sunset.mem`을 읽으므로 GitHub 소스만 받은 경우에는 ZIP에서 파일을
+추가하거나 `image_to_mem.py`로 원하는 이미지를 변환해 생성하면 된다.
 
 ## QR 만료 동작
 
